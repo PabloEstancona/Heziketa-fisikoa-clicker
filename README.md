@@ -1,1 +1,0 @@
-# Heziketa-fisikoa-clicker
