@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maristak Ball Clicker</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #111;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'Georgia', serif;
+    }
+    h1 {
+      color: #f0e8d0;
+      font-size: 1.3rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+    #wrap {
+      background: linear-gradient(180deg, #1a3a1a 0%, #2d5a2d 60%, #4a8a4a 100%);
+      width: 640px; max-width: 100%; height: 400px;
+      position: relative; overflow: hidden;
+      border-radius: 10px; cursor: default; user-select: none;
+    }
+    #hud {
+      position: absolute; top: 10px; left: 0; right: 0;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0 16px; z-index: 10;
+    }
+    #hud .box {
+      background: rgba(0,0,0,0.5); border-radius: 8px;
+      padding: 6px 14px; color: #fff; font-size: 13px;
+    }
+    #hud .box b { font-size: 18px; color: #f0e060; }
+    #title-badge {
+      background: rgba(0,0,0,0.6); border-radius: 8px;
+      padding: 5px 12px; color: #fff; font-size: 12px;
+      font-weight: bold; letter-spacing: 1px;
+    }
+    .ball {
+      position: absolute; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      filter: drop-shadow(0 3px 6px rgba(0,0,0,0.5));
+      animation: fall linear forwards;
+    }
+    .ball:hover { transform: scale(1.15); }
+    .ball:active { transform: scale(0.9); }
+    @keyframes fall {
+      from { transform: translateY(-60px) rotate(0deg); }
+      to   { transform: translateY(420px) rotate(360deg); }
+    }
+    .pop {
+      position: absolute; pointer-events: none;
+      font-size: 22px; font-weight: bold; color: #f0e060;
+      animation: popUp 0.7s ease-out forwards;
+      z-index: 20;
+    }
+    @keyframes popUp {
+      0%   { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-50px) scale(1.4); }
+    }
+    #combo {
+      position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+      color: #f0e060; font-size: 13px; font-weight: bold;
+      background: rgba(0,0,0,0.45); border-radius: 20px; padding: 4px 14px;
+      opacity: 0; transition: opacity 0.3s;
+    }
+    #level-msg {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      background: rgba(0,0,0,0.75); color: #f0e060;
+      font-size: 20px; font-weight: bold; border-radius: 10px;
+      padding: 12px 28px; opacity: 0; pointer-events: none;
+      transition: opacity 0.4s; z-index: 30; text-align: center;
+    }
+    #missed-bar-wrap {
+      position: absolute; bottom: 44px; left: 16px; right: 16px;
+      height: 6px; background: rgba(255,255,255,0.15); border-radius: 3px;
+    }
+    #missed-bar {
+      height: 100%; background: #e74c3c; border-radius: 3px;
+      transition: width 0.3s; width: 0%;
+    }
+    #missed-label {
+      position: absolute; bottom: 54px; right: 16px;
+      color: rgba(255,255,255,0.5); font-size: 10px;
+    }
+    footer {
+      margin-top: 1rem;
+      color: #444;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🏫 Maristak Ball Clicker</h1>
+  <div id="wrap">
+    <svg style="position:absolute;inset:0;pointer-events:none" viewBox="0 0 640 400" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="320" cy="200" r="60" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="2"/>
+      <line x1="320" y1="0" x2="320" y2="400" stroke="rgba(255,255,255,0.1)" stroke-width="1.5"/>
+      <rect x="20" y="140" width="80" height="120" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1.5"/>
+      <rect x="540" y="140" width="80" height="120" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1.5"/>
+    </svg>
+
+    <div id="hud">
+      <div class="box">⚡ Nivel <b id="level">1</b></div>
+      <div id="title-badge">🏫 MARISTAK</div>
+      <div class="box">🏅 <b id="score">0</b> pts</div>
+    </div>
+
+    <div id="missed-label">balones perdidos</div>
+    <div id="missed-bar-wrap"><div id="missed-bar"></div></div>
+    <div id="combo">🔥 COMBO x<span id="combo-val">1</span></div>
+    <div id="level-msg"></div>
+  </div>
+  <footer>Maristak Ikastetxea — ¡Atrapa todos los balones!</footer>
+
+  <script>
+    const wrap = document.getElementById('wrap');
+    const scoreEl = document.getElementById('score');
+    const levelEl = document.getElementById('level');
+    const comboEl = document.getElementById('combo');
+    const comboVal = document.getElementById('combo-val');
+    const missedBar = document.getElementById('missed-bar');
+    const levelMsg = document.getElementById('level-msg');
+
+    const BALLS = ['⚽','🏀','🏐','🎾','🏉','🏓','🥊','🏸'];
+    const MAX_MISSED = 10;
+
+    let score = 0, level = 1, combo = 0, missed = 0;
+    let spawnInterval, active = true;
+
+    function getSpawnRate() { return Math.max(400, 1400 - level * 120); }
+    function getFallDuration() { return Math.max(1.2, 3.5 - level * 0.25); }
+
+    function spawnBall() {
+      if (!active) return;
+      const ball = document.createElement('div');
+      ball.className = 'ball';
+      ball.textContent = BALLS[Math.floor(Math.random() * BALLS.length)];
+      const size = 44 + Math.random() * 16;
+      ball.style.width = size + 'px';
+      ball.style.height = size + 'px';
+      ball.style.fontSize = (size * 0.7) + 'px';
+      const x = 20 + Math.random() * (600 - size);
+      ball.style.left = x + 'px';
+      ball.style.top = '-60px';
+      const dur = getFallDuration();
+      ball.style.animationDuration = dur + 's';
+
+      ball.addEventListener('click', () => {
+        if (!active) return;
+        combo++;
+        const pts = combo >= 3 ? combo * 2 : combo;
+        score += pts;
+        scoreEl.textContent = score;
+
+        const pop = document.createElement('div');
+        pop.className = 'pop';
+        pop.textContent = '+' + pts;
+        pop.style.left = (x + size / 2 - 15) + 'px';
+        pop.style.top = '80px';
+        wrap.appendChild(pop);
+        setTimeout(() => pop.remove(), 700);
+
+        if (combo >= 2) {
+          comboEl.style.opacity = '1';
+          comboVal.textContent = combo;
+        }
+
+        ball.remove();
+        checkLevel();
+      });
+
+      wrap.appendChild(ball);
+
+      ball.addEventListener('animationend', () => {
+        if (!ball.isConnected) return;
+        ball.remove();
+        combo = 0;
+        comboEl.style.opacity = '0';
+        missed++;
+        missedBar.style.width = (missed / MAX_MISSED * 100) + '%';
+        if (missed >= MAX_MISSED) gameOver();
+      });
+    }
+
+    function checkLevel() {
+      const threshold = level * 30;
+      if (score >= threshold) {
+        level++;
+        levelEl.textContent = level;
+        levelMsg.textContent = '🎉 ¡Nivel ' + level + '!';
+        levelMsg.style.opacity = '1';
+        setTimeout(() => levelMsg.style.opacity = '0', 1200);
+        clearInterval(spawnInterval);
+        spawnInterval = setInterval(spawnBall, getSpawnRate());
+      }
+    }
+
+    function gameOver() {
+      active = false;
+      clearInterval(spawnInterval);
+      document.querySelectorAll('.ball').forEach(b => b.remove());
+      levelMsg.textContent = '💀 ¡Fin! ' + score + ' pts\nToca para reiniciar';
+      levelMsg.style.opacity = '1';
+      wrap.addEventListener('click', restart, { once: true });
+    }
+
+    function restart() {
+      score = 0; level = 1; combo = 0; missed = 0; active = true;
+      scoreEl.textContent = '0'; levelEl.textContent = '1';
+      missedBar.style.width = '0%';
+      comboEl.style.opacity = '0';
+      levelMsg.style.opacity = '0';
+      clearInterval(spawnInterval);
+      spawnInterval = setInterval(spawnBall, getSpawnRate());
+    }
+
+    spawnInterval = setInterval(spawnBall, getSpawnRate());
+    setTimeout(spawnBall, 300);
+  </script>
+</body>
+</html>
